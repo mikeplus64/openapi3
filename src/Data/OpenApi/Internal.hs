@@ -962,8 +962,7 @@ newtype Reference = Reference { getReference :: Text }
   deriving (Eq, Show, Data, Typeable)
 
 data Referenced a
-  = Ref Reference
-  | Merge Reference a
+  = Ref Reference (Maybe Text)
   | Inline a
   deriving (Eq, Show, Functor, Data, Typeable)
 
@@ -1171,7 +1170,7 @@ instance {-# OVERLAPPING #-} SwaggerMonoid (InsOrdHashMap FilePath PathItem) whe
 instance Monoid a => SwaggerMonoid (Referenced a) where
   swaggerMempty = Inline mempty
   swaggerMappend (Inline x) (Inline y) = Inline (mappend x y)
-  swaggerMappend (Merge r0 x) (Merge r1 y) | r0 == r1 = Merge r0 (mappend x y)
+  swaggerMappend (Ref _ d0) (Ref y d1) = Ref y (d0 <> d1)
   swaggerMappend _ y = y
 
 -- =======================================================================
@@ -1428,11 +1427,8 @@ instance ToJSON Reference where
   toJSON (Reference ref) = object [ "$ref" .= ref ]
 
 referencedToJSON :: ToJSON a => Text -> Referenced a -> Value
-referencedToJSON prefix (Ref (Reference ref)) = object [ "$ref" .= (prefix <> ref) ]
-referencedToJSON prefix (Merge (Reference ref) x) =
-  case toJSON x of
-    Object o -> Object (KeyMap.union (KeyMap.singleton "$ref" (toJSON (prefix <> ref))) o)
-    v -> v
+referencedToJSON prefix (Ref (Reference ref) Nothing) = object [ "$ref" .= (prefix <> ref) ]
+referencedToJSON prefix (Ref (Reference ref) (Just desc)) = object [ "$ref" .= (prefix <> ref), "description" .= desc ]
 referencedToJSON _ (Inline x) = toJSON x
 
 instance ToJSON (Referenced Schema)   where toJSON = referencedToJSON "#/components/schemas/"
@@ -1584,7 +1580,7 @@ referencedParseJSON prefix js@(Object o) = do
   ms <- o .:? "$ref"
   case ms of
     Nothing -> Inline <$> parseJSON js
-    Just s  -> Ref <$> parseRef s
+    Just s  -> Ref <$> parseRef s <*> o .:? "description"
   where
     parseRef s = do
       case Text.stripPrefix prefix s of

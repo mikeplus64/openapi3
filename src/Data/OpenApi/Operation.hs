@@ -316,11 +316,8 @@ setResponseForWith ops f code dres swag =
   where
     (defs, new) = runDeclare dres mempty
 
-    combine (Just (Ref (Reference n))) = case swag ^. components . responses . at n of
+    combine (Just (Ref (Reference n) _desc)) = case swag ^. components . responses . at n of
         Just old -> f old new
         Nothing -> new -- response name can't be dereferenced, replacing with new response
     combine (Just (Inline old)) = f old new
-    combine (Just (Merge (Reference n) old)) = case swag ^. components . responses . at n of
-        Just oldR -> f (oldR <> old) new
-        Nothing -> new -- response name can't be dereferenced, replacing with new response
     combine Nothing = new

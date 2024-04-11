@@ -250,7 +250,7 @@ declareSchemaRef proxy = do
       when (not known) $ do
         declare [(name, schema)]
         void $ declareNamedSchema proxy
-      return $ Ref (Reference name)
+      return $ Ref (Reference name) Nothing
     _ -> Inline <$> declareSchema proxy
 
 -- | Inline any referenced schema if its name satisfies given predicate.
@@ -263,19 +263,12 @@ declareSchemaRef proxy = do
 inlineSchemasWhen :: Data s => (T.Text -> Bool) -> (Definitions Schema) -> s -> s
 inlineSchemasWhen p defs = template %~ deref
   where
-    deref r@(Ref (Reference name))
+    deref r@(Ref (Reference name) mdesc)
       | p name =
           case InsOrdHashMap.lookup name defs of
-            Just schema -> Inline (inlineSchemasWhen p defs schema)
+            Just schema -> Inline (inlineSchemasWhen p defs schema & description <>~ mdesc)
             Nothing -> r
       | otherwise = r
-    deref r@(Merge (Reference name) schema)
-      | p name =
-          case InsOrdHashMap.lookup name defs of
-            Just schema' -> Inline (inlineSchemasWhen p defs (schema' <> schema))
-            Nothing -> r
-      | otherwise = Merge (Reference name) (inlineSchemasWhen p defs schema)
-
     deref (Inline schema) = Inline (inlineSchemasWhen p defs schema)
 
 -- | Inline any referenced schema if its name is in the given list.
@@ -329,18 +322,12 @@ inlineNonRecursiveSchemas defs = inlineSchemasWhen nonRecursive defs
 
     schemaRefNames :: Referenced Schema -> Declare [T.Text] ()
     schemaRefNames ref = case ref of
-      Ref (Reference name) -> do
+      Ref (Reference name) _mdesc -> do
         seen <- looks (name `elem`)
         when (not seen) $ do
           declare [name]
           traverse_ usedNames (InsOrdHashMap.lookup name defs)
       Inline subschema -> usedNames subschema
-      Merge (Reference name) subschema -> do
-        seen <- looks (name `elem`)
-        when (not seen) $ do
-          declare [name]
-          traverse_ usedNames (InsOrdHashMap.lookup name defs)
-        usedNames subschema
 
 -- | Make an unrestrictive sketch of a @'Schema'@ based on a @'ToJSON'@ instance.
 -- Produced schema can be used for further refinement.
@@ -993,7 +980,7 @@ gdeclareSchemaRef opts proxy = do
       when (not known) $ do
         declare [(name, schema)]
         void $ gdeclareNamedSchema opts proxy mempty
-      return $ Ref (Reference name)
+      return $ Ref (Reference name) Nothing
     _ -> Inline <$> gdeclareSchema opts proxy
 
 appendItem :: Referenced Schema -> Maybe OpenApiItems -> Maybe OpenApiItems

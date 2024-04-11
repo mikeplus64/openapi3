@@ -302,9 +302,8 @@ withRef (Reference ref) f = withConfig $ \cfg ->
     Just s  -> f s
 
 validateWithSchemaRef :: Referenced Schema -> Value -> Validation s ()
-validateWithSchemaRef (Ref ref)  js = withRef ref $ \sch -> sub sch (validateWithSchema js)
+validateWithSchemaRef (Ref ref _)  js = withRef ref $ \sch -> sub sch (validateWithSchema js)
 validateWithSchemaRef (Inline s) js = sub s (validateWithSchema js)
-validateWithSchemaRef (Merge ref s) js = withRef ref $ \sch -> sub (sch <> s) (validateWithSchema js)
 
 -- | Validate JSON @'Value'@ with Swagger @'Schema'@.
 validateWithSchema :: Value -> Validation Schema ()
@@ -389,7 +388,7 @@ validateObject o = withSchema $ \sch ->
       Just (Success pvalue) ->
         let ref = fromMaybe pvalue $ InsOrdHashMap.lookup pvalue types
         -- TODO ref may be name or reference
-        in validateWithSchemaRef (Ref (Reference ref)) (Object o)
+        in validateWithSchemaRef (Ref (Reference ref) Nothing) (Object o)
       Just (Error msg)   -> invalid ("failed to parse discriminator property " ++ show pname ++ ": " ++ show msg)
       Nothing            -> invalid ("discriminator property " ++ show pname ++ "is missing")
     Nothing -> do
