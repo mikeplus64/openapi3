@@ -8,6 +8,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -961,9 +962,15 @@ newtype Reference = Reference { getReference :: Text }
   deriving (Eq, Show, Data, Typeable)
 
 data Referenced a
-  = Ref Reference
+  = RefDesc Reference (Maybe Text)
   | Inline a
   deriving (Eq, Show, Functor, Data, Typeable)
+
+pattern Ref :: Reference -> Referenced a
+pattern Ref ref <- RefDesc ref _
+  where Ref ref = RefDesc ref Nothing
+
+{-# COMPLETE Ref, Inline #-}
 
 instance IsString a => IsString (Referenced a) where
   fromString = Inline . fromString
@@ -1425,7 +1432,8 @@ instance ToJSON Reference where
   toJSON (Reference ref) = object [ "$ref" .= ref ]
 
 referencedToJSON :: ToJSON a => Text -> Referenced a -> Value
-referencedToJSON prefix (Ref (Reference ref)) = object [ "$ref" .= (prefix <> ref) ]
+referencedToJSON prefix (RefDesc (Reference ref) (Just desc)) = object [ "$ref" .= (prefix <> ref), "description" .= desc ]
+referencedToJSON prefix (RefDesc (Reference ref) Nothing) = object [ "$ref" .= (prefix <> ref) ]
 referencedToJSON _ (Inline x) = toJSON x
 
 instance ToJSON (Referenced Schema)   where toJSON = referencedToJSON "#/components/schemas/"

@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Module:      Data.OpenApi
 -- Maintainer:  Nickolay Kudasov <nickolay@getshoptv.com>
@@ -114,7 +115,7 @@ module Data.OpenApi (
 
   -- ** References
   Reference(..),
-  Referenced(..),
+  Referenced(.., Ref),
 
   -- ** Miscellaneous
   MimeList(..),
