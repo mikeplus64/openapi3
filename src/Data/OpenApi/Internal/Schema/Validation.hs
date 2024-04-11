@@ -304,6 +304,7 @@ withRef (Reference ref) f = withConfig $ \cfg ->
 validateWithSchemaRef :: Referenced Schema -> Value -> Validation s ()
 validateWithSchemaRef (Ref ref)  js = withRef ref $ \sch -> sub sch (validateWithSchema js)
 validateWithSchemaRef (Inline s) js = sub s (validateWithSchema js)
+validateWithSchemaRef (Merge ref s) js = withRef ref $ \sch -> sub (sch <> s) (validateWithSchema js)
 
 -- | Validate JSON @'Value'@ with Swagger @'Schema'@.
 validateWithSchema :: Value -> Validation Schema ()

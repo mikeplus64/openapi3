@@ -962,6 +962,7 @@ newtype Reference = Reference { getReference :: Text }
 
 data Referenced a
   = Ref Reference
+  | Merge Reference a
   | Inline a
   deriving (Eq, Show, Functor, Data, Typeable)
 
@@ -1169,6 +1170,7 @@ instance {-# OVERLAPPING #-} SwaggerMonoid (InsOrdHashMap FilePath PathItem) whe
 instance Monoid a => SwaggerMonoid (Referenced a) where
   swaggerMempty = Inline mempty
   swaggerMappend (Inline x) (Inline y) = Inline (mappend x y)
+  swaggerMappend (Merge r0 x) (Merge r1 y) | r0 == r1 = Merge r0 (mappend x y)
   swaggerMappend _ y = y
 
 -- =======================================================================
@@ -1426,6 +1428,10 @@ instance ToJSON Reference where
 
 referencedToJSON :: ToJSON a => Text -> Referenced a -> Value
 referencedToJSON prefix (Ref (Reference ref)) = object [ "$ref" .= (prefix <> ref) ]
+referencedToJSON prefix (Merge (Reference ref) x) =
+  case toJSON x of
+    Object o -> Object (KeyMap.union (KeyMap.singleton "$ref" (toJSON (prefix <> ref))) o)
+    v -> v
 referencedToJSON _ (Inline x) = toJSON x
 
 instance ToJSON (Referenced Schema)   where toJSON = referencedToJSON "#/components/schemas/"

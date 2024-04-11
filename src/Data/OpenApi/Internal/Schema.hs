@@ -269,6 +269,13 @@ inlineSchemasWhen p defs = template %~ deref
             Just schema -> Inline (inlineSchemasWhen p defs schema)
             Nothing -> r
       | otherwise = r
+    deref r@(Merge (Reference name) schema)
+      | p name =
+          case InsOrdHashMap.lookup name defs of
+            Just schema' -> Inline (inlineSchemasWhen p defs (schema' <> schema))
+            Nothing -> r
+      | otherwise = Merge (Reference name) (inlineSchemasWhen p defs schema)
+
     deref (Inline schema) = Inline (inlineSchemasWhen p defs schema)
 
 -- | Inline any referenced schema if its name is in the given list.
@@ -328,6 +335,12 @@ inlineNonRecursiveSchemas defs = inlineSchemasWhen nonRecursive defs
           declare [name]
           traverse_ usedNames (InsOrdHashMap.lookup name defs)
       Inline subschema -> usedNames subschema
+      Merge (Reference name) subschema -> do
+        seen <- looks (name `elem`)
+        when (not seen) $ do
+          declare [name]
+          traverse_ usedNames (InsOrdHashMap.lookup name defs)
+        usedNames subschema
 
 -- | Make an unrestrictive sketch of a @'Schema'@ based on a @'ToJSON'@ instance.
 -- Produced schema can be used for further refinement.
